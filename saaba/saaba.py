@@ -12,9 +12,6 @@ from dataclasses import dataclass
 from .utils import read_file
 
 
-DIRNAME = __file__.replace("\\", "/").rsplit("/", 1)[0]
-
-
 @dataclass
 class Request:
     """Request class
@@ -180,7 +177,7 @@ class App:
 
     def is_static(self, url: str) -> bool:
         """Check if url can be resolved with static"""
-        return any((url.startswith(x) for x, _ in self._static_dict))
+        return any((url.startswith(x) for x in self._static_dict))
 
     def find_static(self, static: dict[str, str], path: str) -> str:
         """returns final path"""
