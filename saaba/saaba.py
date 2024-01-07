@@ -35,7 +35,7 @@ class Response:
             "Content-type": "text/html",
             "Access-Control-Allow-Origin": "*",
         }
-        self.data: Any
+        self.data: Any = ""
         self.status = 200
 
     def send(self, data: dict[Any, Any] | str) -> Self:
