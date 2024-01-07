@@ -173,7 +173,7 @@ class App:
             server.wfile.write(bytes("<h1>File not found</h1>", "utf-8"))
 
     def handle_post(self, server: BaseHTTPRequestHandler) -> None:
-        if server.path.rstrip("/") in self.routes["get"]:
+        if server.path.rstrip("/") in self.routes["post"]:
             # Found in direct routes
             path = server.path
             url = path
