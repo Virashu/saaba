@@ -176,24 +176,22 @@ class App:
         if server.path.rstrip("/") in self.routes["get"]:
             # Found in direct routes
             path = server.path
+            url = path
             client = server.client_address
-            query = {}
 
-            if "?" in path:
-                url, query_string = path.split("?")
+            body_raw: str = ""
 
-                for x in query_string.split("&"):
-                    key, value = x.split("=")
-                    query[key] = value
-            else:
-                url = path
+            while not body_raw.count("{") or body_raw.count("{") != body_raw.count("}"):
+                body_raw += server.rfile.read(1).decode()
+
+            body = json.loads(body_raw)
 
             request = Request(
                 path=path,
                 client=client,
                 url=url,
-                query=query,
-                body=None,
+                query=None,
+                body=body,
             )
             response = Response()
 
@@ -209,53 +207,12 @@ class App:
 
             server.wfile.write(bytes(response.data, "utf-8"))
 
-        elif self.is_static(server.path):
-            # Found in static routes
-            abspath = self.find_static(self._static_dict, server.path)
-
-            if abspath.endswith("/"):
-                abspath += "index.html"
-
-            if not exists(abspath):
-                server.send_response(404)
-                server.end_headers()
-                return
-
-            content = read_file(abspath)
-
-            server.send_response(200)
-
-            content_type, _ = guess_type(abspath)
-            if not content_type:
-                raise ValueError(f"Unknown MIME type for {abspath}")
-            server.send_header("Content-type", content_type)
-            server.send_header("Access-Control-Allow-Origin", "*")
-            server.end_headers()
-
-            server.wfile.write(bytes(content, "utf-8"))
-
         else:
-            # Not found in direct/static routes
+            # Not found in direct routes
             server.send_response(404)
             server.send_header("Content-type", "text/html")
             server.end_headers()
             server.wfile.write(bytes("<h1>File not found</h1>", "utf-8"))
-
-        server.send_response(200)
-        server.send_header("Content-type", "text/html")
-        server.end_headers()
-
-        print("Trying to read request...")
-
-        body_raw = ""
-
-        while not body_raw.count("{") or body_raw.count("{") != body_raw.count("}"):
-            body_raw += server.rfile.read(1).decode()
-
-        body = json.loads(body_raw)
-
-        message = "Hello, World! Here is a POST response"
-        server.wfile.write(bytes(message, "utf8"))
 
     def listen(
         self, ip: str, port: int, callback: Callable[..., None] | None = None
