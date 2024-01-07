@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <meta charset="UTF-8" />
+  <title>Document</title>
+  <script>
+    function sendPost() {
+      fetch("http://127.0.0.1:3000/", {
+        method: "POST",
+        mode: "cors",
+        cache: "no-cache",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        redirect: "follow",
+        referrerPolicy: "no-referrer",
+        body: JSON.stringify({"hello": "hello"}),
+      });
+    }
+  </script>
+  <button onclick="sendPost()">send</button>
+</html>

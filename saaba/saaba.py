@@ -1,5 +1,5 @@
 """Main file"""
-__all__ = ["App"]
+__all__ = ["App", "Request", "Response"]
 
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -18,7 +18,10 @@ class Request:
 
     Contains request info"""
 
+    url: str
     path: str
+    query: dict[str, Any] | None
+    body: dict[str, Any] | None
     client: tuple[str, int]
 
 
@@ -85,9 +88,14 @@ class App:
                 self._parent_app.handle_get(self)
 
             def do_POST(self):
-                ...
+                if self._parent_app is None:
+                    return
+                self._parent_app.handle_post(self)
 
-        self.routes: dict[str, Callable[..., Any]] = {}
+        self.routes: dict[str, dict[str, Callable[..., Any]]] = {
+            "get": {},
+            "post": {},
+        }
         self._static_dict: dict[str, str] = {}
         self._server = _Server
         self._server._parent_app = self
@@ -96,16 +104,32 @@ class App:
         """GET request handler.
 
         Called from child"""
-        if server.path.rstrip("/") in self.routes:
+        if server.path.rstrip("/") in self.routes["get"]:
             # Found in direct routes
+            path = server.path
+            client = server.client_address
+            query = {}
+
+            if "?" in path:
+                url, query_string = path.split("?")
+
+                for x in query_string.split("&"):
+                    key, value = x.split("=")
+                    query[key] = value
+            else:
+                url = path
+
             request = Request(
-                path=server.path,
-                client=server.client_address,
+                path=path,
+                client=client,
+                url=url,
+                query=query,
+                body=None,
             )
             response = Response()
 
             # Call user function
-            self.routes[server.path.rstrip("/")](request, response)
+            self.routes["get"][server.path.rstrip("/")](request, response)
 
             server.send_response(response.status)
 
@@ -148,6 +172,91 @@ class App:
             server.end_headers()
             server.wfile.write(bytes("<h1>File not found</h1>", "utf-8"))
 
+    def handle_post(self, server: BaseHTTPRequestHandler) -> None:
+        if server.path.rstrip("/") in self.routes["get"]:
+            # Found in direct routes
+            path = server.path
+            client = server.client_address
+            query = {}
+
+            if "?" in path:
+                url, query_string = path.split("?")
+
+                for x in query_string.split("&"):
+                    key, value = x.split("=")
+                    query[key] = value
+            else:
+                url = path
+
+            request = Request(
+                path=path,
+                client=client,
+                url=url,
+                query=query,
+                body=None,
+            )
+            response = Response()
+
+            # Call user function
+            self.routes["get"][server.path.rstrip("/")](request, response)
+
+            server.send_response(response.status)
+
+            for key, value in response.headers.items():
+                server.send_header(key, value)
+
+            server.end_headers()
+
+            server.wfile.write(bytes(response.data, "utf-8"))
+
+        elif self.is_static(server.path):
+            # Found in static routes
+            abspath = self.find_static(self._static_dict, server.path)
+
+            if abspath.endswith("/"):
+                abspath += "index.html"
+
+            if not exists(abspath):
+                server.send_response(404)
+                server.end_headers()
+                return
+
+            content = read_file(abspath)
+
+            server.send_response(200)
+
+            content_type, _ = guess_type(abspath)
+            if not content_type:
+                raise ValueError(f"Unknown MIME type for {abspath}")
+            server.send_header("Content-type", content_type)
+            server.send_header("Access-Control-Allow-Origin", "*")
+            server.end_headers()
+
+            server.wfile.write(bytes(content, "utf-8"))
+
+        else:
+            # Not found in direct/static routes
+            server.send_response(404)
+            server.send_header("Content-type", "text/html")
+            server.end_headers()
+            server.wfile.write(bytes("<h1>File not found</h1>", "utf-8"))
+
+        server.send_response(200)
+        server.send_header("Content-type", "text/html")
+        server.end_headers()
+
+        print("Trying to read request...")
+
+        body_raw = ""
+
+        while not body_raw.count("{") or body_raw.count("{") != body_raw.count("}"):
+            body_raw += server.rfile.read(1).decode()
+
+        body = json.loads(body_raw)
+
+        message = "Hello, World! Here is a POST response"
+        server.wfile.write(bytes(message, "utf8"))
+
     def listen(
         self, ip: str, port: int, callback: Callable[..., None] | None = None
     ) -> None:
@@ -158,6 +267,19 @@ class App:
 
         web_server.serve_forever()
 
+    def route(
+        self, method, path
+    ) -> Callable[
+        [Callable[[Request, Response], Any]], Callable[[Request, Response], Any]
+    ]:
+        """Set route"""
+
+        def decorator(func: Callable[[Request, Response], Any]):
+            self.routes[method][path.rstrip("/")] = func
+            return func
+
+        return decorator
+
     def get(
         self, path: str
     ) -> Callable[
@@ -165,11 +287,16 @@ class App:
     ]:
         """Set route"""
 
-        def decorator(func: Callable[[Request, Response], Any]):
-            self.routes[path.rstrip("/")] = func
-            return func
+        return self.route("get", path)
 
-        return decorator
+    def post(
+        self, path: str
+    ) -> Callable[
+        [Callable[[Request, Response], Any]], Callable[[Request, Response], Any]
+    ]:
+        """Set route"""
+
+        return self.route("post", path)
 
     def static(self, url: str, path: str) -> None:
         """Set static route"""
