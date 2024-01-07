@@ -196,7 +196,7 @@ class App:
             response = Response()
 
             # Call user function
-            self.routes["get"][server.path.rstrip("/")](request, response)
+            self.routes["post"][server.path.rstrip("/")](request, response)
 
             server.send_response(response.status)
 
