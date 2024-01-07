@@ -1,5 +1,7 @@
 """Utilities"""
 
+__all__ = ["read_file", "get_path"]
+
 
 def read_file(path: str) -> str:
     """Macro to read file"""
