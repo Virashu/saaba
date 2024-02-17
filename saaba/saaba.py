@@ -134,7 +134,7 @@ class App:
 
             # Call user function
             self.routes["get"][url.rstrip("/")](request, response)
-            logger.debug("GET %s", url.rstrip("/"))
+            logger.info("GET %s", url.rstrip("/"))
 
             server.send_response(response.status)
 
