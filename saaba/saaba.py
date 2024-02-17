@@ -8,9 +8,12 @@ from mimetypes import guess_type
 from os.path import exists
 from typing import Callable, Self, Any
 from dataclasses import dataclass
+import logging
 
 
 from .utils import read_file
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -131,6 +134,7 @@ class App:
 
             # Call user function
             self.routes["get"][url.rstrip("/")](request, response)
+            logger.debug("GET %s", url.rstrip("/"))
 
             server.send_response(response.status)
 
