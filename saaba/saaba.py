@@ -1,4 +1,5 @@
 """Main file"""
+
 __all__ = ["App", "Request", "Response"]
 
 import json
@@ -129,7 +130,7 @@ class App:
             response = Response()
 
             # Call user function
-            self.routes["get"][server.path.rstrip("/")](request, response)
+            self.routes["get"][url.rstrip("/")](request, response)
 
             server.send_response(response.status)
 
