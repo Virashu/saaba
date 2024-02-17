@@ -103,6 +103,7 @@ class App:
         self._static_dict: dict[str, str] = {}
         self._server = _Server
         self._server._parent_app = self
+        self._server_instance: HTTPServer
 
     def handle_get(self, server: BaseHTTPRequestHandler):
         """GET request handler.
@@ -229,6 +230,10 @@ class App:
             callback()
 
         web_server.serve_forever()
+
+    def stop(self) -> None:
+        """Stop the app"""
+        self._server_instance.shutdown()
 
     def route(
         self, method, path
