@@ -108,20 +108,21 @@ class App:
         """GET request handler.
 
         Called from child"""
-        if server.path.rstrip("/") in self.routes["get"]:
+        path = server.path
+        client = server.client_address
+        query = {}
+
+        if "?" in path:
+            url, query_string = path.split("?")
+
+            for x in query_string.split("&"):
+                key, value = x.split("=")
+                query[key] = value
+        else:
+            url = path
+
+        if url.rstrip("/") in self.routes["get"]:
             # Found in direct routes
-            path = server.path
-            client = server.client_address
-            query = {}
-
-            if "?" in path:
-                url, query_string = path.split("?")
-
-                for x in query_string.split("&"):
-                    key, value = x.split("=")
-                    query[key] = value
-            else:
-                url = path
 
             request = Request(
                 path=path,
@@ -145,7 +146,7 @@ class App:
 
             server.wfile.write(bytes(response.data, "utf-8"))
 
-        elif self.is_static(server.path):
+        elif self.is_static(url):
             # Found in static routes
             abspath = self.find_static(self._static_dict, server.path)
 
