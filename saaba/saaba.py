@@ -1,19 +1,31 @@
 """Main file"""
 
+from __future__ import annotations
+
 __all__ = ["App", "Request", "Response"]
 
 import json
+import logging
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from mimetypes import guess_type
 from os.path import exists
+import typing as t
 from typing import Callable, Self, Any
-from dataclasses import dataclass
-import logging
-
 
 from .utils import read_file
 
+
 logger = logging.getLogger(__name__)
+
+
+# TYPES
+
+RouteCallable: t.TypeAlias = Callable[["Request", "Response"], Any]
+RouteDecorator: t.TypeAlias = Callable[[RouteCallable], RouteCallable]
+
+
+# CODE
 
 
 @dataclass
@@ -84,17 +96,19 @@ class App:
 
     def __init__(self) -> None:
         class _Server(BaseHTTPRequestHandler):
-            _parent_app: "App | None" = None
+            saaba_parent_app: "App | None" = None
 
-            def do_GET(self):
-                if self._parent_app is None:
+            # pylint: disable=invalid-name,missing-function-docstring
+            def do_GET(self) -> None:
+                if self.saaba_parent_app is None:
                     return
-                self._parent_app.handle_get(self)
+                self.saaba_parent_app.handle_get(self)
 
-            def do_POST(self):
-                if self._parent_app is None:
+            # pylint: disable=invalid-name,missing-function-docstring
+            def do_POST(self) -> None:
+                if self.saaba_parent_app is None:
                     return
-                self._parent_app.handle_post(self)
+                self.saaba_parent_app.handle_post(self)
 
         self.routes: dict[str, dict[str, Callable[..., Any]]] = {
             "get": {},
@@ -102,21 +116,22 @@ class App:
         }
         self._static_dict: dict[str, str] = {}
         self._server = _Server
-        self._server._parent_app = self
+        self._server.saaba_parent_app = self
         self._server_instance: HTTPServer
 
     def handle_get(self, server: BaseHTTPRequestHandler):
-        """GET request handler.
+        """GET request handler
 
         Called from child"""
-        path = server.path
-        client = server.client_address
-        query = {}
+        path: str = server.path
+        client: tuple[str, int] = server.client_address
+        query: dict[str, Any] = {}
 
         if "?" in path:
             url, query_string = path.split("?")
 
             for x in query_string.split("&"):
+                # TODO: Guess value type
                 key, value = x.split("=")
                 query[key] = value
         else:
@@ -180,6 +195,7 @@ class App:
             server.wfile.write(bytes("<h1>File not found</h1>", "utf-8"))
 
     def handle_post(self, server: BaseHTTPRequestHandler) -> None:
+        """POST request handler"""
         if server.path.rstrip("/") in self.routes["post"]:
             # Found in direct routes
             path = server.path
@@ -235,33 +251,21 @@ class App:
         """Stop the app"""
         self._server_instance.shutdown()
 
-    def route(
-        self, method, path
-    ) -> Callable[
-        [Callable[[Request, Response], Any]], Callable[[Request, Response], Any]
-    ]:
+    def route(self, method: str, path: str) -> RouteDecorator:
         """Set route"""
 
-        def decorator(func: Callable[[Request, Response], Any]):
+        def decorator(func: RouteCallable) -> RouteCallable:
             self.routes[method][path.rstrip("/")] = func
             return func
 
         return decorator
 
-    def get(
-        self, path: str
-    ) -> Callable[
-        [Callable[[Request, Response], Any]], Callable[[Request, Response], Any]
-    ]:
+    def get(self, path: str) -> RouteDecorator:
         """Set route"""
 
         return self.route("get", path)
 
-    def post(
-        self, path: str
-    ) -> Callable[
-        [Callable[[Request, Response], Any]], Callable[[Request, Response], Any]
-    ]:
+    def post(self, path: str) -> RouteDecorator:
         """Set route"""
 
         return self.route("post", path)
@@ -279,3 +283,4 @@ class App:
         f = filter(path.startswith, static.keys())
         s = sorted(f, key=lambda a: len(a.split("/")))
         return path.replace(s[-1], static[s[-1]])
+
