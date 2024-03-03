@@ -251,11 +251,12 @@ class App:
         """Stop the app"""
         self._server_instance.shutdown()
 
-    def route(self, method: str, path: str) -> RouteDecorator:
+    def route(self, methods: list[str], path: str) -> RouteDecorator:
         """Set route"""
 
         def decorator(func: RouteCallable) -> RouteCallable:
-            self.routes[method][path.rstrip("/")] = func
+            for method in methods:
+                self.routes[method.lower()][path.rstrip("/")] = func
             return func
 
         return decorator
@@ -263,12 +264,12 @@ class App:
     def get(self, path: str) -> RouteDecorator:
         """Set route"""
 
-        return self.route("get", path)
+        return self.route(["get"], path)
 
     def post(self, path: str) -> RouteDecorator:
         """Set route"""
 
-        return self.route("post", path)
+        return self.route(["post"], path)
 
     def static(self, url: str, path: str) -> None:
         """Set static route"""
@@ -283,4 +284,3 @@ class App:
         f = filter(path.startswith, static.keys())
         s = sorted(f, key=lambda a: len(a.split("/")))
         return path.replace(s[-1], static[s[-1]])
-
