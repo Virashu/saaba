@@ -110,6 +110,10 @@ class App:
                     return
                 self.saaba_parent_app.handle_post(self)
 
+            # Original method just throws it into stderr instead of using logging module
+            def log_message(self, format: str, *args: t.Any) -> None:
+                logger.info(format, *args)
+
         self.routes: dict[str, dict[str, Callable[..., Any]]] = {
             "get": {},
             "post": {},
