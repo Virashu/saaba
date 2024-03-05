@@ -18,6 +18,8 @@ from .utils import read_file
 
 logger = logging.getLogger(__name__)
 
+http_server_logger = logging.getLogger("http.server")
+
 
 # TYPES
 
@@ -111,8 +113,10 @@ class App:
                 self.saaba_parent_app.handle_post(self)
 
             # Original method just throws it into stderr instead of using logging module
+            # :(
+            # pylint: disable=redefined-builtin
             def log_message(self, format: str, *args: t.Any) -> None:
-                logger.info(format, *args)
+                http_server_logger.info(format, *args)
 
         self.routes: dict[str, dict[str, Callable[..., Any]]] = {
             "get": {},
@@ -169,6 +173,7 @@ class App:
         elif self.is_static(url):
             # Found in static routes
             abspath = self.find_static(self._static_dict, server.path)
+            abspath.replace("../", "")
 
             if abspath.endswith("/"):
                 abspath += "index.html"
