@@ -2,95 +2,23 @@
 
 from __future__ import annotations
 
-__all__ = ["App", "Request", "Response"]
+__all__ = ["App"]
 
 import json
 import logging
-from dataclasses import dataclass
+import typing as t
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from mimetypes import guess_type
 from os.path import exists
-import typing as t
-from typing import Callable, Self, Any
+from typing import Any, Callable
 
+from .containers import Request, Response
+from .typing import RouteCallable, RouteDecorator
 from .utils import read_file
-
 
 logger = logging.getLogger(__name__)
 
 http_server_logger = logging.getLogger("http.server")
-
-
-# TYPES
-
-RouteCallable: t.TypeAlias = Callable[["Request", "Response"], Any]
-RouteDecorator: t.TypeAlias = Callable[[RouteCallable], RouteCallable]
-
-
-# CODE
-
-
-@dataclass
-class Request:
-    """Request class
-
-    Contains request info"""
-
-    url: str
-    path: str
-    query: dict[str, Any] | None
-    body: dict[str, Any] | None
-    client: tuple[str, int]
-
-
-class Response:
-    """Response class
-
-    Used to modify response data"""
-
-    def __init__(self) -> None:
-        self.headers: dict[str, Any] = {
-            "Content-type": "text/html",
-            "Access-Control-Allow-Origin": "*",
-        }
-        self.data: Any = ""
-        self.status = 200
-
-    def send(self, data: dict[Any, Any] | str) -> Self:
-        """Send data"""
-        if isinstance(data, dict):
-            content_type = "application/json"
-            data = json.dumps(data)
-        else:
-            content_type = "text/html"
-        self.headers["Content-type"] = content_type
-        self.data = data
-        return self
-
-    def add(self, data: dict[Any, Any] | str) -> Self:
-        """Add data"""
-        content_type = self.headers["Content-type"]
-        if isinstance(data, dict):
-            if self.data:
-                if content_type == "application/json":
-                    data_merge = json.loads(self.data)
-                    data |= data_merge
-                else:
-                    return self
-
-            data = json.dumps(data)
-        self.data += data
-        return self
-
-    def set_status(self, value: int) -> Self:
-        """Set response code"""
-        self.status = value
-        return self
-
-    def set_headers(self, value: dict[str, str]) -> Self:
-        """Set headers"""
-        self.headers |= value
-        return self
 
 
 class App:
@@ -139,7 +67,6 @@ class App:
             url, query_string = path.split("?")
 
             for x in query_string.split("&"):
-                # TODO: Guess value type
                 key, value = x.split("=")
                 query[key] = value
         else:
@@ -250,11 +177,11 @@ class App:
         self, ip: str, port: int, callback: Callable[..., None] | None = None
     ) -> None:
         """Start the app"""
-        web_server = HTTPServer((ip, port), self._server)
+        self._server_instance = HTTPServer((ip, port), self._server)
         if callback is not None:
             callback()
 
-        web_server.serve_forever()
+        self._server_instance.serve_forever()
 
     def stop(self) -> None:
         """Stop the app"""
